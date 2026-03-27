@@ -78,8 +78,8 @@ for k = 1:length(meshSizes)
     for e = 1:mesh_QLQL{k}.numElem
         nodes_e     = mesh_QLQL{k}.connect(e, :);
         cords_nodos = mesh_QLQL{k}.nodes(nodes_e, :);
-        % QLQL siempre usa 2×2 full (sin argumento integrationType)
-        Ke = CalcularRigidezQLQL(cords_nodos, geometria, material);
+        % QLQL con integración selectiva de corte (igual que QLLL)
+        Ke = CalcularRigidezQLQL(cords_nodos, geometria, material, 'selective');
         [I, J, V, count] = ensamblarTriplete(I, J, V, count, Ke, nodes_e, ndofnod);
     end
 

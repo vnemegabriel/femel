@@ -1,4 +1,4 @@
-function [Ke_global] = CalcularRigidezQLQL(nodes3D, geometry, material)
+function [Ke_global] = CalcularRigidezQLQL(nodes3D, geometry, material, integrationType)
     % CalcularRigidezQLQL — Rigidez de cáscara plana QLQL (Oñate §6.7.4)
     %
     % FORMULACIÓN:
@@ -6,15 +6,23 @@ function [Ke_global] = CalcularRigidezQLQL(nodes3D, geometry, material)
     %   θ  : cuadrática incompleta — 4 DOFs de esquina (θx,θy) + 4 DOFs
     %        jerárquicos de lado (Δθs5…Δθs8, uno por arista, Ec. 6.105)
     %   γ  : campo de corte lineal sustituto (mismo que QLLL, Ec. 6.86)
-    %   Integración: 2×2 Gauss full para todos los términos
+    %   Integración flexión: 2×2 Gauss full
+    %   Integración corte: selective (1 punto) o full (2×2), según integrationType
     %   Los 4 DOFs jerárquicos se condensan estáticamente → Ke final 24×24
     %
-    % Signatura compatible con CalcularRigidezQLLL (integrationType omitido
-    % porque QLQL siempre usa 2×2 full y no necesita integración selectiva).
+    % Signatura compatible con CalcularRigidezQLLL:
+    %   integrationType: 'selective' (recomendado para estructuras delgadas)
+    %                    o 'full' (opcional). Por defecto: 'selective'
     %
     % nodes3D  : [4×3] coordenadas globales de los 4 nodos
     % geometry : struct con campo .t
     % material : struct con campos .E y .nu
+    % integrationType : (opcional) 'selective' o 'full' para integración de corte
+
+    % Parámetro de integración de corte (default: 'selective' para evitar locking)
+    if nargin < 4 || isempty(integrationType)
+        integrationType = 'selective';
+    end
 
     E  = material.E;
     nu = material.nu;
@@ -38,7 +46,7 @@ function [Ke_global] = CalcularRigidezQLQL(nodes3D, geometry, material)
         e_side(s,:) = v / norm(v);
     end
 
-    % 4. Integración 2×2 Gauss --------------------------------------------
+    % 4. Integración de flexión y membrana (siempre 2×2 Gauss) -----------
     [gp, gw] = getGaussPoints(2);
     Area_elem = 0;
 
@@ -47,13 +55,13 @@ function [Ke_global] = CalcularRigidezQLQL(nodes3D, geometry, material)
     %   25-28 → Δθs5,Δθs6,Δθs7,Δθs8 (jerárquicos, sin DOF global)
     Kee = zeros(28, 28);
 
+    % Integración de membrana y flexión con 2×2 full
     for i = 1:2
         for j = 1:2
             xi  = gp(i);  eta = gp(j);
             wj  = gw(i) * gw(j);
 
             [Bm, Bb_exp, detJ] = getMatricesMB_QLQL(nodesLocal, xi, eta, e_side);
-            [Bs,         ~   ] = getMatrixS(nodesLocal, xi, eta);
 
             wJ = detJ * wj;
             Area_elem = Area_elem + wJ;
@@ -67,6 +75,22 @@ function [Ke_global] = CalcularRigidezQLQL(nodes3D, geometry, material)
             %   DOFs jerárquicos      : [25, 26, 27, 28]
             idxB = [4,5, 10,11, 16,17, 22,23, 25,26,27,28];
             Kee(idxB, idxB) = Kee(idxB, idxB) + Bb_exp' * Db * Bb_exp * wJ;
+        end
+    end
+
+    % 4b. Integración de corte (selectiva o full) -----------------------
+    if strcmpi(integrationType, 'full')
+        nGaussS = 2;
+    else
+        nGaussS = 1;  % selective (por defecto)
+    end
+
+    [gpS, gwS] = getGaussPoints(nGaussS);
+    for i = 1:nGaussS
+        for j = 1:nGaussS
+            xi  = gpS(i);  eta = gpS(j);
+            [Bs, detJ] = getMatrixS(nodesLocal, xi, eta);
+            wJ = detJ * gwS(i) * gwS(j);
 
             % Corte: w,θx,θy de 4 nodos → DOFs locales [3,4,5, 9,10,11, 15,16,17, 21,22,23]
             % (Los DOFs jerárquicos no contribuyen a γ en QLQL)
