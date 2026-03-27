@@ -179,6 +179,8 @@ fprintf('Analytical Mx at center ≈ %.4e N.m/m\n', Mx_exact);
 % 6. PLOTS
 % =========================================================================
 
+w_nodes = D_vec(1:nDofNod:end);   % w at every node  (nNod x 1)
+
 % --- Convergence plot ---
 figure('Name','Convergence');
 semilogx(meshSizes, w_fem*1e6, 'o-b', 'LineWidth', 1.5, 'MarkerSize', 8);
@@ -190,34 +192,33 @@ title('Convergence — Simply-supported plate under uniform load');
 legend('FEM (selective integration)', 'Navier solution', 'Location','southeast');
 grid on;
 
-% --- Deflection contour (finest mesh) ---
-w_nodes = D_vec(1:nDofNod:end);   % w at every node
+% --- 3D deformed plate — colored by deflection (auto scale factor) ---
+figure('Name','Deformed plate — deflection');
+plotPlate3D(nodes, connectivity, w_nodes, w_nodes, [], ...
+    sprintf('Deformed plate  w  [m] — %d\\times%d mesh (amplified)', n, n));
 
-figure('Name','Deflection');
-trisurf(connectivity(:,[1 2 3]), nodes(:,1), nodes(:,2), w_nodes*1e6, ...
-    'EdgeColor','none');
-hold on;
-trisurf(connectivity(:,[1 3 4]), nodes(:,1), nodes(:,2), w_nodes*1e6, ...
-    'EdgeColor','none');
+% --- 3D deformed plate — colored by Mx (element centroid values) ---
+figure('Name','Deformed plate — Mx');
+plotPlate3D(nodes, connectivity, w_nodes, Mx_ele, [], ...
+    sprintf('Deformed plate colored by M_x  [N\\cdotm/m] — %d\\times%d mesh', n, n));
+colorbar;   % update label
+cb = findobj(gcf, 'Type', 'ColorBar');
+cb.Label.String = 'M_x  [N\cdotm/m]';
+
+% --- 2D top-view Mx contour (element centroid values) ---
+figure('Name','Moment Mx — top view');
+for ie = 1:nEle
+    xv = nodes(connectivity(ie,:), 1);
+    yv = nodes(connectivity(ie,:), 2);
+    patch(xv, yv, Mx_ele(ie)*ones(4,1), Mx_ele(ie), 'EdgeColor', 'none');
+end
 colormap('jet'); colorbar;
-xlabel('x [m]'); ylabel('y [m]'); zlabel('w [\mum]');
-title(sprintf('Transverse deflection  w  (\\mum) — %dx%d mesh', n, n));
-view(2); axis equal tight;
+xlabel('x [m]'); ylabel('y [m]');
+title('Bending moment  M_x  [N\cdotm/m] at element centroids');
+axis equal tight;
 
 % --- Mesh visualization ---
 figure('Name','Mesh');
 meshplot(connectivity, nodes, 'k', false);
-title(sprintf('Q4 mesh — %d × %d elements', n, n));
+title(sprintf('Q4 mesh — %d \\times %d elements', n, n));
 xlabel('x [m]'); ylabel('y [m]');
-
-% --- Mx moment contour (element centroid values) ---
-figure('Name','Moment Mx');
-for ie = 1:nEle
-    xv = nodes(connectivity(ie,:), 1);
-    yv = nodes(connectivity(ie,:), 2);
-    patch(xv, yv, Mx_ele(ie)*ones(4,1), Mx_ele(ie), 'EdgeColor','none');
-end
-colormap('jet'); colorbar;
-xlabel('x [m]'); ylabel('y [m]');
-title('Bending moment  M_x  [N·m/m] at element centroids');
-axis equal tight;
