@@ -170,6 +170,92 @@ for e = 1:3
     hold off;
 end
 
+%% 6b. (OPCIONAL) Figuras separadas — solo QLLL y QLQL vs. Referencia
+%  Para activar: eliminar las líneas "%{" y "%}" que rodean el bloque.
+%{
+% ---- Convergencia: solo no degenerados ----
+figure('Color','w','Name','Convergencia QLLL y QLQL');
+hold on;
+plot(meshSizes, wb_QLLL, 'k--+', 'LineWidth',1.4,'MarkerSize',9,'DisplayName','QLLL');
+plot(meshSizes, wb_QLQL, 'b--d', 'LineWidth',1.4,'MarkerSize',9,'DisplayName','QLQL');
+yline(sol_ref, '--', 'Color',[0.7 0 0], 'LineWidth',1.6, ...
+    'Label',sprintf('QLLL 40\\times40: %.4f in', sol_ref), ...
+    'LabelHorizontalAlignment','left', ...
+    'DisplayName','Ref. QLLL 40\times40');
+grid on; box on;
+set(gca,'XTick',meshSizes);
+xlim([meshSizes(1)-1, meshSizes(end)+1]);
+xlabel('Densidad de malla (N\timesN)','FontSize',11);
+ylabel('|w_B| [in]','FontSize',11);
+title('Convergencia w_B — QLLL y QLQL','FontSize',12);
+legend('Location','best','FontSize',10);
+hold off;
+
+% ---- Esfuerzos 8x8: solo no degenerados ----
+for e = 1:3
+    figure('Color','w','Name',['(No deg.) ' figNames_s{e}]);
+    hold on;
+    for k = 1:2
+        plot(theta_nd{k}, stress_nd{k}{e}, estilos_nd{k}, ...
+            'LineWidth',1.2,'MarkerSize',7, ...
+            'DisplayName',[nombres_nd{k} ' (8\times8)']);
+    end
+    plot(theta_Ref, stress_ref{e}, 'k-', 'LineWidth',2, ...
+        'DisplayName','QLLL 40\times40 (Ref.)');
+    yline(0,'k:','LineWidth',0.8,'HandleVisibility','off');
+    grid on; box on;
+    xlabel('\phi [°]','FontSize',11);
+    ylabel(ylabels_s{e},'FontSize',11);
+    title([titulos_s{e} ' — QLLL y QLQL  (8\times8 vs. 40\times40)'],'FontSize',12);
+    legend('Location','best','FontSize',9);
+    hold off;
+end
+%}
+
+%% 6c. (OPCIONAL) Figuras separadas — solo Degenerados vs. Referencia
+%  Para activar: eliminar las líneas "%{" y "%}" que rodean el bloque.
+%{
+% ---- Convergencia: solo degenerados ----
+figure('Color','w','Name','Convergencia AHMAD4, AHMAD8, AHMAD9');
+hold on;
+for k = 1:nTypes
+    plot(meshSizes, wb_Ah(k,:), estilos_ah{k}, ...
+        'LineWidth',1.4,'MarkerSize',8,'DisplayName',nombres_ah{k});
+end
+yline(sol_ref, '--', 'Color',[0.7 0 0], 'LineWidth',1.6, ...
+    'Label',sprintf('QLLL 40\\times40: %.4f in', sol_ref), ...
+    'LabelHorizontalAlignment','left', ...
+    'DisplayName','Ref. QLLL 40\times40');
+grid on; box on;
+set(gca,'XTick',meshSizes);
+xlim([meshSizes(1)-1, meshSizes(end)+1]);
+xlabel('Densidad de malla (N\timesN)','FontSize',11);
+ylabel('|w_B| [in]','FontSize',11);
+title('Convergencia w_B — Elementos Degenerados (Ahmad)','FontSize',12);
+legend('Location','best','FontSize',10);
+hold off;
+
+% ---- Esfuerzos 8x8: solo degenerados ----
+for e = 1:3
+    figure('Color','w','Name',['(Deg.) ' figNames_s{e}]);
+    hold on;
+    for k = 1:nTypes
+        plot(phi_eval, Res_all{e}{k, ks8}, estilos_ah{k}, ...
+            'LineWidth',1.2,'MarkerSize',6, ...
+            'DisplayName',[nombres_ah{k} ' (8\times8)']);
+    end
+    plot(theta_Ref, stress_ref{e}, 'k-', 'LineWidth',2, ...
+        'DisplayName','QLLL 40\times40 (Ref.)');
+    yline(0,'k:','LineWidth',0.8,'HandleVisibility','off');
+    grid on; box on;
+    xlabel('\phi [°]','FontSize',11);
+    ylabel(ylabels_s{e},'FontSize',11);
+    title([titulos_s{e} ' — Degenerados  (8\times8 vs. 40\times40)'],'FontSize',12);
+    legend('Location','best','FontSize',9);
+    hold off;
+end
+%}
+
 %% 7. Reporte en consola
 w_ref_lit = 0.3024;    % Valor bibliográfico de referencia [in]
 linea_d   = repmat('=', 1, 100);
