@@ -37,7 +37,6 @@ material.D = [D1,             material.nu*D1, 0,   0,    0  ;
 
 q_val     = 90;               % Carga gravitatoria [psi]
 meshSizes = [2, 4, 8, 16];
-refSize   = 40;               % Malla de referencia QLLL 40×40
 ndofnod6  = 6;                % DOFs/nodo — QLLL/QLQL
 
 % Puntos angulares para evaluación de esfuerzos degenerados
@@ -46,6 +45,8 @@ phi_eval   = linspace(0, geometria.phi_max, n_pts_eval);
 
 %% 2. Referencia: QLLL 40×40
 fprintf('Calculando referencia QLLL 40x40...\n');
+
+refSize   = 40;               % Malla de referencia QLLL 40×40
 [meshRef, sol_ref_signed] = resolverMalla(refSize, geometria, material, q_val, ndofnod6, 'QLLL');
 sol_ref = abs(sol_ref_signed);   % Positivo (desplazamiento hacia abajo)
 
@@ -120,7 +121,7 @@ xlim([meshSizes(1)-1, meshSizes(end)+1]);
 xlabel('Densidad de malla (N\timesN)','FontSize',11);
 ylabel('|w_B| [in]','FontSize',11);
 title('Convergencia de desplazamiento vertical en B — Scordelis-Lo','FontSize',12);
-legend('Location','best','FontSize',10);
+legend('Location','northeast','FontSize',12);
 hold off;
 
 %% 6. Figuras 2-4 — Distribución de esfuerzos a lo largo de A-B (malla 8×8)
@@ -140,35 +141,35 @@ estilos_nd = {'k--+', 'b--d'};
 nombres_nd = {'QLLL', 'QLQL'};
 
 % for e = 1:3
-    figure('Color','w','Name',figNames_s{e});
-    hold on;
-
-    % QLLL y QLQL — 8×8
-    for k = 1:2
-        plot(theta_nd{k}, stress_nd{k}{e}, estilos_nd{k}, ...
-            'LineWidth',1.2,'MarkerSize',7, ...
-            'DisplayName',[nombres_nd{k} ' (8\times8)']);
-    end
-
-    % Degenerados — 8×8
-    for k = 1:nTypes
-        plot(phi_eval, Res_all{e}{k, ks8}, estilos_ah{k}, ...
-            'LineWidth',1.2,'MarkerSize',6, ...
-            'DisplayName',[nombres_ah{k} ' (8\times8)']);
-    end
-
-    % Referencia QLLL 40×40
-    plot(theta_Ref, stress_ref{e}, 'k-', 'LineWidth',2, ...
-        'DisplayName','QLLL 40\times40 (Ref.)');
-
-    yline(0,'k:','LineWidth',0.8,'HandleVisibility','off');
-    grid on; box on;
-    xlabel('\phi [°]','FontSize',11);
-    ylabel(ylabels_s{e},'FontSize',11);
-    title([titulos_s{e} ' — linea A-B  (8\times8 vs. 40\times40)'],'FontSize',12);
-    legend('Location','best','FontSize',9);
-    hold off;
-end
+%     figure('Color','w','Name',figNames_s{e});
+%     hold on;
+% 
+%     % QLLL y QLQL — 8×8
+%     for k = 1:2
+%         plot(theta_nd{k}, stress_nd{k}{e}, estilos_nd{k}, ...
+%             'LineWidth',1.2,'MarkerSize',7, ...
+%             'DisplayName',[nombres_nd{k} ' (8\times8)']);
+%     end
+% 
+%     % Degenerados — 8×8
+%     for k = 1:nTypes
+%         plot(phi_eval, Res_all{e}{k, ks8}, estilos_ah{k}, ...
+%             'LineWidth',1.2,'MarkerSize',6, ...
+%             'DisplayName',[nombres_ah{k} ' (8\times8)']);
+%     end
+% 
+%     % Referencia QLLL 40×40
+%     plot(theta_Ref, stress_ref{e}, 'k-', 'LineWidth',2, ...
+%         'DisplayName','QLLL 40\times40 (Ref.)');
+% 
+%     yline(0,'k:','LineWidth',0.8,'HandleVisibility','off');
+%     grid on; box on;
+%     xlabel('\phi [°]','FontSize',11);
+%     ylabel(ylabels_s{e},'FontSize',11);
+%     title([titulos_s{e} ' — linea A-B  (8\times8 vs. 40\times40)'],'FontSize',12);
+%     legend('Location','northeast' ,'FontSize',12);
+%     hold off;
+% end
 
 %% 6b. (OPCIONAL) Figuras separadas — solo QLLL y QLQL vs. Referencia
 
@@ -187,7 +188,7 @@ xlim([meshSizes(1)-1, meshSizes(end)+1]);
 xlabel('Densidad de malla (N\timesN)','FontSize',11);
 ylabel('|w_B| [in]','FontSize',11);
 title('Convergencia w_B — QLLL y QLQL','FontSize',12);
-legend('Location','best','FontSize',10);
+legend('Location','northeast','FontSize',12);
 hold off;
 
 %---- Esfuerzos 8x8: solo no degenerados ----
@@ -206,10 +207,9 @@ for e = 1:3
     xlabel('\phi [°]','FontSize',11);
     ylabel(ylabels_s{e},'FontSize',11);
     title([titulos_s{e} ' — QLLL y QLQL  (8\times8 vs. 40\times40)'],'FontSize',12);
-    legend('Location','best','FontSize',9);
+    legend('Location','northwest' ,'FontSize',12);
     hold off;
 end
-}
 
 % 6c. (OPCIONAL) Figuras separadas — solo Degenerados vs. Referencia
 
@@ -230,7 +230,7 @@ xlim([meshSizes(1)-1, meshSizes(end)+1]);
 xlabel('Densidad de malla (N\timesN)','FontSize',11);
 ylabel('|w_B| [in]','FontSize',11);
 title('Convergencia w_B — Elementos Degenerados (Ahmad)','FontSize',12);
-legend('Location','best','FontSize',10);
+legend('Location','northeast' ,'FontSize',12);
 hold off;
 
 % ---- Esfuerzos 8x8: solo degenerados ----
@@ -249,7 +249,7 @@ for e = 1:3
     xlabel('\phi [°]','FontSize',11);
     ylabel(ylabels_s{e},'FontSize',11);
     title([titulos_s{e} ' — Degenerados  (8\times8 vs. 40\times40)'],'FontSize',12);
-    legend('Location','best','FontSize',9);
+    legend('Location','northwest','FontSize',12);
     hold off;
 end
 
