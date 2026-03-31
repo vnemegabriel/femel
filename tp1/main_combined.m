@@ -92,6 +92,51 @@ for k_type = 1:nTypes
     end
 end
 
+%% 4b. Cálculo de error a posteriori η
+%  η_wB(N)  = |w_B(N) - w_ref| / w_ref            (error relativo en desplazamiento)
+%  η_L2     = ||s_N - s_ref||₂ / ||s_ref||₂        (norma L2 relativa de esfuerzos, malla 8×8)
+%  Tasa p   : η ~ C·h^p  =>  p = pendiente log(η) vs log(h),  h = 1/N
+
+h_vals    = 1 ./ meshSizes;                    % tamaño de malla representativo
+all_names = {'QLLL','QLQL','AHMAD4','AHMAD8','AHMAD9'};
+all_wb    = [wb_QLLL; wb_QLQL; wb_Ah];        % 5 × nSizes
+
+% --- Error relativo en w_B ---
+eta_wB = abs(all_wb - sol_ref) / sol_ref;     % 5 × nSizes
+
+% --- Tasa de convergencia (regresión lineal en log-log, mallas 4×4 a 16×16) ---
+idx_fit  = 2:nSizes;   % excluir malla 2×2 (régimen pre-asintótico)
+tasas_wB = zeros(5,1);
+for i = 1:5
+    c = polyfit(log(h_vals(idx_fit)), log(eta_wB(i,idx_fit) + eps), 1);
+    tasas_wB(i) = c(1);
+end
+
+% --- Error L2 de esfuerzos en malla 8×8 ---
+%  Se interpola la referencia (QLLL 40×40) a los puntos de evaluación
+%  de cada formulación (centroide para QLLL/QLQL; phi_eval para Ahmad).
+ref_phi = theta_Ref(:);
+ref_Nx  = Nx_Ref(:);  ref_My = My_Ref(:);  ref_Qy = Qy_Ref(:);
+
+pts_eval  = {theta_L8(:), theta_Q8(:), ...
+             phi_eval(:), phi_eval(:), phi_eval(:)};
+calc_eval = {{Nx_L8(:), My_L8(:), Qy_L8(:)}, ...
+             {Nx_Q8(:), My_Q8(:), Qy_Q8(:)}, ...
+             {Res_Nx{1,ks8}(:), Res_My{1,ks8}(:), Res_Qy{1,ks8}(:)}, ...
+             {Res_Nx{2,ks8}(:), Res_My{2,ks8}(:), Res_Qy{2,ks8}(:)}, ...
+             {Res_Nx{3,ks8}(:), Res_My{3,ks8}(:), Res_Qy{3,ks8}(:)}};
+
+eta_L2 = zeros(5,3);   % filas: elementos; columnas: Nx, My, Qy
+for i = 1:5
+    phi_i    = pts_eval{i};
+    Nx_ref_i = interp1(ref_phi, ref_Nx, phi_i, 'linear', 'extrap');
+    My_ref_i = interp1(ref_phi, ref_My, phi_i, 'linear', 'extrap');
+    Qy_ref_i = interp1(ref_phi, ref_Qy, phi_i, 'linear', 'extrap');
+    eta_L2(i,1) = norm(calc_eval{i}{1} - Nx_ref_i) / (norm(Nx_ref_i) + eps);
+    eta_L2(i,2) = norm(calc_eval{i}{2} - My_ref_i) / (norm(My_ref_i) + eps);
+    eta_L2(i,3) = norm(calc_eval{i}{3} - Qy_ref_i) / (norm(Qy_ref_i) + eps);
+end
+
 %% 5. Figura 1 — Convergencia unificada de w_B
 figure('Color','w','Name','Convergencia unificada w_B');
 hold on;
@@ -121,6 +166,29 @@ xlabel('Densidad de malla (N\timesN)','FontSize',11);
 ylabel('|w_B| [in]','FontSize',11);
 title('Convergencia de desplazamiento vertical en B — Scordelis-Lo','FontSize',12);
 legend('Location','best','FontSize',10);
+hold off;
+
+%% 5b. Figura — Convergencia del error η_wB (escala log-log)
+estilos_todos = {'k--+','b--d','-r^','-gs','-mo'};
+
+figure('Color','w','Name','Error eta_wB log-log');
+hold on;
+for i = 1:5
+    loglog(h_vals, eta_wB(i,:), estilos_todos{i}, ...
+        'LineWidth',1.3,'MarkerSize',8, ...
+        'DisplayName', sprintf('%s  (p = %.2f)', all_names{i}, tasas_wB(i)));
+end
+% Líneas de referencia de orden 1 y 2 (escaladas al rango del gráfico)
+h_lin = logspace(log10(h_vals(end)*0.8), log10(h_vals(1)*1.2), 50);
+eta_mid = geomean(eta_wB(:));
+loglog(h_lin, eta_mid * (h_lin/geomean(h_vals)).^1, 'k:',  'LineWidth',0.9, 'DisplayName','O(h^1)');
+loglog(h_lin, eta_mid * (h_lin/geomean(h_vals)).^2, 'k--', 'LineWidth',0.9, 'DisplayName','O(h^2)');
+grid on; box on;
+set(gca,'XScale','log','YScale','log');
+xlabel('h \sim 1/N','FontSize',11);
+ylabel('\eta_{w_B} = |w_B - w_{ref}| / w_{ref}','FontSize',11);
+title('Convergencia del error a posteriori \eta_{w_B} — Scordelis-Lo','FontSize',12);
+legend('Location','northwest','FontSize',9);
 hold off;
 
 %% 6. Figuras 2-4 — Distribución de esfuerzos a lo largo de A-B (malla 8×8)
@@ -279,9 +347,6 @@ for n = meshSizes
 end
 fprintf('%s\n%s\n', header, linea_s);
 
-all_names = [nombres_nd, nombres_ah];
-all_wb    = [wb_QLLL; wb_QLQL; wb_Ah];   % 5 × nSizes
-
 for i = 1:5
     fprintf('  %-18s', all_names{i});
     for k = 1:nSizes
@@ -289,6 +354,37 @@ for i = 1:5
         fprintf('|  %.4f  (%+5.1f%%)  ', all_wb(i,k), err);
     end
     fprintf('\n');
+end
+fprintf('%s\n\n', linea_s);
+
+% --- Tabla de error η_wB y tasa de convergencia ---
+fprintf('  ERROR A POSTERIORI η_wB Y TASA DE CONVERGENCIA\n');
+fprintf('  (η = |w_B - w_ref| / w_ref  |  tasa p: η ~ h^p  |  ajuste log-log N=4..16)\n');
+fprintf('%s\n', linea_s);
+header2 = sprintf('  %-18s', 'Elemento');
+for n = meshSizes
+    header2 = [header2, sprintf('|  η  N=%-2d    ', n)]; %#ok<AGROW>
+end
+header2 = [header2, '|  Tasa p'];
+fprintf('%s\n%s\n', header2, linea_s);
+for i = 1:5
+    fprintf('  %-18s', all_names{i});
+    for k = 1:nSizes
+        fprintf('|  %.5f    ', eta_wB(i,k));
+    end
+    fprintf('|   %+.3f\n', tasas_wB(i));
+end
+fprintf('%s\n\n', linea_s);
+
+% --- Tabla de error L2 de esfuerzos (malla 8×8) ---
+fprintf('  ERROR L2 DE ESFUERZOS — MALLA 8x8\n');
+fprintf('  (η_L2 = ||s_N - s_ref||₂ / ||s_ref||₂  |  referencia: QLLL 40x40 interpolado)\n');
+fprintf('%s\n', linea_s);
+fprintf('  %-18s|  η_L2(Nx)    |  η_L2(My)    |  η_L2(Qy)\n', 'Elemento');
+fprintf('%s\n', linea_s);
+for i = 1:5
+    fprintf('  %-18s|  %.5f     |  %.5f     |  %.5f\n', ...
+        all_names{i}, eta_L2(i,1), eta_L2(i,2), eta_L2(i,3));
 end
 fprintf('%s\n\n', linea_d);
 
