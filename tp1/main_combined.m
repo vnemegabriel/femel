@@ -292,6 +292,19 @@ for i = 1:5
 end
 fprintf('%s\n\n', linea_d);
 
+%% 8. (OPCIONAL) Guardado de figuras
+%  Guarda todas las figuras abiertas como imágenes en una carpeta de salida.
+%  Formatos disponibles: 'png', 'pdf', 'svg', 'eps'
+%  Para activar: eliminar las líneas "%{" y "%}" que rodean el bloque.
+%{
+directorio_salida = 'resultados';   % Carpeta de destino (se crea si no existe)
+formato_salida    = 'png';          % Formato: 'png' | 'pdf' | 'svg' | 'eps'
+resolucion_dpi    = 300;            % Resolución en DPI (aplica a png y eps)
+
+fprintf('\nGuardando figuras...\n');
+guardarFiguras(directorio_salida, formato_salida, resolucion_dpi);
+%}
+
 %% ================================================================ %%
 %%  FUNCIONES LOCALES
 %% ================================================================ %%
@@ -537,4 +550,61 @@ function [wB, mesh, U, nodalSys] = resolverMallaAhmad(N, geometria, material, q_
     zB = geometria.R * cos(phi_max_rad);
     [~, nodeB] = min(sum((mesh.nodes - [xB, yB, zB]).^2, 2));
     wB = abs(U((nodeB-1)*ndofnod + 3));
+end
+
+% ---- guardarFiguras ---------------------------------------------
+function guardarFiguras(directorio, formato, resolucion)
+% Guarda todas las figuras abiertas como imágenes.
+%   directorio : carpeta de destino (se crea si no existe)
+%   formato    : 'png' | 'pdf' | 'svg' | 'eps'  (default: 'png')
+%   resolucion : DPI para formatos de trama       (default: 300)
+
+    if nargin < 1 || isempty(directorio), directorio = 'resultados'; end
+    if nargin < 2 || isempty(formato),    formato    = 'png';        end
+    if nargin < 3 || isempty(resolucion), resolucion = 300;          end
+
+    if ~isfolder(directorio)
+        mkdir(directorio);
+        fprintf('  Carpeta creada: %s\n', directorio);
+    end
+
+    figs = findall(0, 'Type', 'figure');
+    if isempty(figs)
+        fprintf('  No hay figuras abiertas para guardar.\n');
+        return;
+    end
+
+    % Ordenar por número de figura (ascendente)
+    nums = arrayfun(@(f) f.Number, figs);
+    [~, orden] = sort(nums);
+    figs = figs(orden);
+
+    for i = 1:length(figs)
+        fig    = figs(i);
+        nombre = get(fig, 'Name');
+        if isempty(strtrim(nombre))
+            nombre = sprintf('figura_%02d', get(fig, 'Number'));
+        end
+        % Reemplazar caracteres no válidos en nombres de archivo
+        nombre = regexprep(nombre, '[\\/:*?"<>|\s—]+', '_');
+        nombre = strtrim(nombre);
+
+        ruta = fullfile(directorio, [nombre '.' formato]);
+
+        switch lower(formato)
+            case 'png'
+                print(fig, ruta, '-dpng', ['-r' num2str(resolucion)]);
+            case 'pdf'
+                print(fig, ruta, '-dpdf');
+            case 'svg'
+                print(fig, ruta, '-dsvg');
+            case 'eps'
+                print(fig, ruta, '-depsc', ['-r' num2str(resolucion)]);
+            otherwise
+                warning('Formato "%s" no reconocido. Usando PNG.', formato);
+                print(fig, ruta, '-dpng', ['-r' num2str(resolucion)]);
+        end
+        fprintf('  [%d/%d] Guardada: %s\n', i, length(figs), ruta);
+    end
+    fprintf('Total: %d figura(s) guardada(s) en "%s".\n', length(figs), directorio);
 end
