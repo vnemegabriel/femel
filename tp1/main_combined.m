@@ -139,7 +139,7 @@ figNames_s = {'Nx — linea A-B', 'My — linea A-B', 'Qy — linea A-B'};
 estilos_nd = {'k--+', 'b--d'};
 nombres_nd = {'QLLL', 'QLQL'};
 
-for e = 1:3
+% for e = 1:3
     figure('Color','w','Name',figNames_s{e});
     hold on;
 
@@ -171,9 +171,8 @@ for e = 1:3
 end
 
 %% 6b. (OPCIONAL) Figuras separadas — solo QLLL y QLQL vs. Referencia
-%  Para activar: eliminar las líneas "%{" y "%}" que rodean el bloque.
-%{
-% ---- Convergencia: solo no degenerados ----
+
+%---- Convergencia: solo no degenerados ----
 figure('Color','w','Name','Convergencia QLLL y QLQL');
 hold on;
 plot(meshSizes, wb_QLLL, 'k--+', 'LineWidth',1.4,'MarkerSize',9,'DisplayName','QLLL');
@@ -191,7 +190,7 @@ title('Convergencia w_B — QLLL y QLQL','FontSize',12);
 legend('Location','best','FontSize',10);
 hold off;
 
-% ---- Esfuerzos 8x8: solo no degenerados ----
+%---- Esfuerzos 8x8: solo no degenerados ----
 for e = 1:3
     figure('Color','w','Name',['(No deg.) ' figNames_s{e}]);
     hold on;
@@ -210,11 +209,10 @@ for e = 1:3
     legend('Location','best','FontSize',9);
     hold off;
 end
-%}
+}
 
-%% 6c. (OPCIONAL) Figuras separadas — solo Degenerados vs. Referencia
-%  Para activar: eliminar las líneas "%{" y "%}" que rodean el bloque.
-%{
+% 6c. (OPCIONAL) Figuras separadas — solo Degenerados vs. Referencia
+
 % ---- Convergencia: solo degenerados ----
 figure('Color','w','Name','Convergencia AHMAD4, AHMAD8, AHMAD9');
 hold on;
@@ -254,7 +252,7 @@ for e = 1:3
     legend('Location','best','FontSize',9);
     hold off;
 end
-%}
+
 
 %% 7. Reporte en consola
 w_ref_lit = 0.3024;    % Valor bibliográfico de referencia [in]
@@ -296,14 +294,13 @@ fprintf('%s\n\n', linea_d);
 %  Guarda todas las figuras abiertas como imágenes en una carpeta de salida.
 %  Formatos disponibles: 'png', 'pdf', 'svg', 'eps'
 %  Para activar: eliminar las líneas "%{" y "%}" que rodean el bloque.
-%{
+
 directorio_salida = 'resultados';   % Carpeta de destino (se crea si no existe)
 formato_salida    = 'png';          % Formato: 'png' | 'pdf' | 'svg' | 'eps'
 resolucion_dpi    = 300;            % Resolución en DPI (aplica a png y eps)
 
 fprintf('\nGuardando figuras...\n');
 guardarFiguras(directorio_salida, formato_salida, resolucion_dpi);
-%}
 
 %% ================================================================ %%
 %%  FUNCIONES LOCALES
