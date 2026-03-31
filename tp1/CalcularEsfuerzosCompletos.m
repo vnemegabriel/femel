@@ -1,116 +1,73 @@
-function [N, M, Q] = CalcularEsfuerzosCompletos(mesh, geometry, material, D_global, evalPoints)
-    % Recuperación de esfuerzos Nx, My, Qy para elementos de cáscara plana
+function [N_res, M_res, Q_res] = CalcularEsfuerzosCompletos(mesh, geometry, material, D_global, evalPoints)
+
     nEle = size(mesh.connect, 1);
     nEval = size(evalPoints, 2);
     t = geometry.t; 
     E = material.E; 
     nu = material.nu;
+    G = E / (2*(1+nu));
     
-    % Matrices constitutivas
     Dm = (E*t/(1-nu^2)) * [1 nu 0; nu 1 0; 0 0 (1-nu)/2];
     Db = (E*t^3/(12*(1-nu^2))) * [1 nu 0; nu 1 0; 0 0 (1-nu)/2];
-    G = E / (2*(1+nu));
     Ds = (5/6) * G * t * eye(2);
     
-    N = zeros(3, nEval, nEle); 
-    M = zeros(3, nEval, nEle); 
-    Q = zeros(2, nEval, nEle);
+    N_res = zeros(3, nEval, nEle); 
+    M_res = zeros(3, nEval, nEle); 
+    Q_res = zeros(2, nEval, nEle);
     
-    dNNodes = shapefunsder(evalPoints, 'Q4');
+    isQuad = (size(mesh.connect, 2) == 4);
     
     for iEle = 1:nEle
-        % 1. Obtener la matriz de transformación del elemento (YA ES 24x24)
-        nodesEle3D = mesh.nodes(mesh.connect(iEle, :), :);
-        [Te, nodesLoc2D] = getTransformationMatrix(nodesEle3D);
+        numNodes = size(mesh.connect, 2);
+        nodesElem = mesh.nodes(mesh.connect(iEle, :), :);
+        [T_full, nodesLoc] = getTransformationMatrix(nodesElem);
         
-        % 2. Extraer desplazamientos globales del elemento (24x1)
-        nodes_e = mesh.connect(iEle, :);
-        idx_global = zeros(24, 1);
-        for i = 1:4
-            idx_global((i-1)*6 + (1:6)) = (nodes_e(i)-1)*6 + (1:6);
+        eleDofs = zeros(1, numNodes*6);
+        for iNode = 1:numNodes
+            eleDofs((iNode-1)*6+1 : iNode*6) = (mesh.connect(iEle, iNode)-1)*6 + (1:6);
         end
+        D_local = T_full * D_global(eleDofs);
         
-        % Aseguramos que sea un vector columna antes de multiplicar
-        Ue_global = D_global(idx_global);
-        Ue_global = Ue_global(:); 
+        x = nodesLoc(:,1); y = nodesLoc(:,2);
         
-        % 3. Transformar a local (24x24 * 24x1 = 24x1)
-        Ue_local = Te * Ue_global;
-        
+        if isQuad
+            %QLQL
+            Bg1_1 = zeros(1, 24); Bg1_3 = zeros(1, 24);
+            Bg2_2 = zeros(1, 24); Bg2_4 = zeros(1, 24);
+            Bg1_1(3)=-0.5; Bg1_1(9)=0.5; Bg1_1(4)=-0.25*(y(2)-y(1)); Bg1_1(10)=-0.25*(y(2)-y(1)); Bg1_1(5)=0.25*(x(2)-x(1)); Bg1_1(11)=0.25*(x(2)-x(1));
+            Bg1_3(21)=-0.5; Bg1_3(15)=0.5; Bg1_3(22)=-0.25*(y(3)-y(4)); Bg1_3(16)=-0.25*(y(3)-y(4)); Bg1_3(23)=0.25*(x(3)-x(4)); Bg1_3(17)=0.25*(x(3)-x(4));
+            Bg2_2(9)=-0.5; Bg2_2(15)=0.5; Bg2_2(10)=-0.25*(y(3)-y(2)); Bg2_2(16)=-0.25*(y(3)-y(2)); Bg2_2(11)=0.25*(x(3)-x(2)); Bg2_2(17)=0.25*(x(3)-x(2));
+            Bg2_4(3)=-0.5; Bg2_4(21)=0.5; Bg2_4(4)=-0.25*(y(4)-y(1)); Bg2_4(22)=-0.25*(y(4)-y(1)); Bg2_4(5)=0.25*(x(4)-x(1)); Bg2_4(23)=0.25*(x(4)-x(1));
+        end
         for p = 1:nEval
-            jac = dNNodes(:,:,p) * nodesLoc2D;
-            dNBxy = jac \ dNNodes(:,:,p);
+            xi = evalPoints(1, p);
+            eta = evalPoints(2, p);
             
-            [Ni, ~] = shapefuns(evalPoints(:,p), 'Q4');
-            
-            Bm = zeros(3, 24); Bb = zeros(3, 24); Bs = zeros(2, 24);
-            
-            for i = 1:4
-                col = (i-1)*6;
-                % Membrana
-                Bm(1, col+1) = dNBxy(1,i); 
-                Bm(2, col+2) = dNBxy(2,i);
-                Bm(3, col+1) = dNBxy(2,i); 
-                Bm(3, col+2) = dNBxy(1,i);
+            if isQuad
+                dN_nat = 0.25 * [-(1-eta),  (1-eta),  (1+eta), -(1+eta);
+                                 -(1-xi),  -(1+xi),   (1+xi),   (1-xi)];
+                J = dN_nat * nodesLoc;
+                dN_xy = J \ dN_nat;
                 
-                % Flexión (kappa = [dth_y/dx; -dth_x/dy; ...])
-                Bb(1, col+5) =  dNBxy(1,i); 
-                Bb(2, col+4) = -dNBxy(2,i);
-                Bb(3, col+5) =  dNBxy(2,i); 
-                Bb(3, col+4) = -dNBxy(1,i);
+                Bm = zeros(3, 24); Bb = zeros(3, 24);
+                for k = 1:4
+                    col = 6*(k-1);
+                    Bm(1, col+1) = dN_xy(1,k);
+                    Bm(2, col+2) = dN_xy(2,k);
+                    Bm(3, col+1) = dN_xy(2,k); Bm(3, col+2) = dN_xy(1,k);
+                    
+                    Bb(1, col+5) =  dN_xy(1,k); Bb(2, col+4) = -dN_xy(2,k);
+                    Bb(3, col+5) =  dN_xy(2,k); Bb(3, col+4) = -dN_xy(1,k);
+                end
                 
-                % Corte (gamma = [dw/dx + th_y; dw/dy - th_x])
-                Bs(1, col+3) = dNBxy(1,i); 
-                Bs(1, col+5) = Ni(i);      
-                Bs(2, col+3) = dNBxy(2,i); 
-                Bs(2, col+4) = -Ni(i);     
+                Bg1 = 0.5*(1 - eta)*Bg1_1 + 0.5*(1 + eta)*Bg1_3;
+                Bg2 = 0.5*(1 - xi)*Bg2_4  + 0.5*(1 + xi)*Bg2_2;
+                Bs = J \ [Bg1; Bg2];
             end
             
-            N(:,p,iEle) = Dm * Bm * Ue_local;
-            M(:,p,iEle) = Db * Bb * Ue_local;
-            Q(:,p,iEle) = Ds * Bs * Ue_local;
+            N_res(:, p, iEle) = Dm * Bm * D_local;
+            M_res(:, p, iEle) = Db * Bb * D_local;
+            Q_res(:, p, iEle) = Ds * Bs * D_local;
         end
-    end
-end
-
-function [Ni, numNodos] = shapefuns(upg, elementType)
-    % Evaluamos N para el elemento Q4 en cada punto de Gauss
-    if strcmpi(elementType, 'Q4')
-        numNodos = 4;
-        npg = size(upg, 2);
-        Ni = zeros(numNodos, 1, npg);
-        
-        for p = 1:npg
-            xi = upg(1, p);
-            eta = upg(2, p);
-            % N_i = 1/4 * (1 +- xi) * (1 +- eta)
-            Ni(:, 1, p) = 0.25 * [ (1 - xi)*(1 - eta);
-                                   (1 + xi)*(1 - eta);
-                                   (1 + xi)*(1 + eta);
-                                   (1 - xi)*(1 + eta) ];
-        end
-    else
-        error('Elemento no soportado');
-    end
-end
-
-function dN = shapefunsder(upg, elementType)
-    % Evaluamos las derivadas naturales de N para el elemento Q4
-    if strcmpi(elementType, 'Q4')
-        npg = size(upg, 2);
-        % dN tendrá tamaño (2 derivadas, 4 nodos, npg puntos de Gauss)
-        dN = zeros(2, 4, npg);
-        
-        for p = 1:npg
-            xi = upg(1, p);
-            eta = upg(2, p);
-            
-            % dN/dxi
-            dN(1, :, p) = 0.25 * [ -(1 - eta), (1 - eta), (1 + eta), -(1 + eta) ];
-            % dN/deta
-            dN(2, :, p) = 0.25 * [ -(1 - xi), -(1 + xi), (1 + xi),  (1 - xi) ];
-        end
-    else
-        error('Elemento no soportado');
     end
 end
